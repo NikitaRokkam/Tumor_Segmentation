@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  # Serving API. This is the service that actually stays running.
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - API_KEY=${API_KEY}
+      - MODEL_PATH=/app/checkpoints/model_torchscript.pt
+    volumes:
+      - ./checkpoints:/app/checkpoints:ro   # mounted read-only -- the API serves models, it never writes them
+    restart: unless-stopped
+
+  # Training job. Not started by `docker compose up` (behind a profile) --
+  # you run it explicitly with `docker compose --profile train run train`.
+  # It's a batch job, not a service, so it shouldn't be part of the default stack.
+  train:
+    build: .
+    command: python -m src.train
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./data:/app/data:ro
+      - ./checkpoints:/app/checkpoints
+    profiles: ["train"]
+    # Uncomment if running on a machine with an NVIDIA GPU + nvidia-container-toolkit:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
